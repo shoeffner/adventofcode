@@ -18,23 +18,45 @@ def trajectory(wire):
             else:
                 raise ValueError(f'Can not process {command}')
             t.append(new)
-    return t[1:]
+    return t
 
 
 wires = [l.split(',') for l in sys.stdin.readlines()]
-trajectories = [sorted(list(set(trajectory(wire)))) for wire in wires]
+trajectories = [trajectory(wire) for wire in wires]
 
-shortest = 1e10
-for i, t1 in enumerate(trajectories[1]):
-    if t1 == (0, 0):
-        continue
-    for j, t0 in enumerate(trajectories[0]):
-        if t0 < t1:
-            del trajectories[0][j]
-        elif t0 == t1:
-            dist = sum(map(abs, t1))
-            if dist < shortest:
-                shortest = dist
-        elif t0 > t1:
-            break
-print(shortest)
+
+def find_intersections(trajectories):
+    shortest = 1e10
+    intersections = []
+    for i, t1 in enumerate(trajectories[1]):
+        if t1 == (0, 0):
+            continue
+        for j, t0 in enumerate(trajectories[0]):
+            if t0 < t1:
+                del trajectories[0][j]
+            elif t0 == t1:
+                dist = sum(map(abs, t1))
+                if dist < shortest:
+                    shortest = dist
+                intersections.append(t1)
+            elif t0 > t1:
+                break
+    print(f'Closest intersection is {shortest} away.')
+    return intersections
+
+
+def walk_to(intersection, trajectory):
+    return trajectory.index(intersection)
+
+
+intersections = find_intersections(list(sorted(set(t)) for t in trajectories))
+
+closest = (0, 0)
+steps = 1e10
+for intersection in intersections:
+    nsteps = sum(map(lambda t: t.index(intersection), trajectories))
+    if nsteps < steps:
+        steps = nsteps
+        closest = intersection
+
+print(closest, steps)
