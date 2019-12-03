@@ -1,6 +1,16 @@
 import sys
+sys.path.append('..')
+from intcomputer import IntComputer  # noqa
 
 memory = [int(x) for x in sys.stdin.read().split(',')]
+
+
+def crun(memory, noun, verb, control):
+    computer = IntComputer(memory)
+    computer[1], computer[2] = noun, verb
+    computer()
+    if computer[0] == control:
+        return 100 * noun + verb
 
 
 def run(memory, noun, verb, control):
@@ -25,7 +35,7 @@ def run(memory, noun, verb, control):
 
 for noun in range(99):
     for verb in range(99):
-        result = run(memory.copy(), noun, verb, 19690720)
+        result = crun(memory.copy(), noun, verb, 19690720)
         if result:
             print(result)
             sys.exit(0)
