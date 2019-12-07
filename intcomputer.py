@@ -21,7 +21,7 @@ class IntComputer:
             99: Opcode(99, 1, halt)
         }
 
-    def __call__(self):
+    def __call__(self, verbose=False):
         max_steps = 10000
         output_buffer = []
         for step in itertools.count():
@@ -37,7 +37,7 @@ class IntComputer:
                 parameter_modes.append(mode)
             op = self.opcodes[opcode]
             try:
-                self.instruction_pointer, output = op(self.memory, self.instruction_pointer, parameter_modes)
+                self.instruction_pointer, output = op(self.memory, self.instruction_pointer, parameter_modes, verbose)
                 if output is not None:
                     output_buffer.append(output)
             except StopIteration:
@@ -150,7 +150,7 @@ class Opcode:
         self.stride = stride
         self.callfun = callfun
 
-    def __call__(self, memory, instruction_pointer, parameter_modes=None):
+    def __call__(self, memory, instruction_pointer, parameter_modes=None, verbose=False):
         if parameter_modes is None:
             parameter_modes = [0] * (self.stride - 1)
         elif len(parameter_modes) < (self.stride - 1):
@@ -159,7 +159,8 @@ class Opcode:
         parameters = memory[instruction_pointer + 1:instruction_pointer + self.stride]
         instruction_pointer += self.stride
         try:
-            print(f'{self.code} [{self.callfun.__name__}]{parameters}{parameter_modes}')
+            if verbose:
+                print(f'{self.code} [{self.callfun.__name__}]{parameters}{parameter_modes}')
             ip, output = self.callfun(memory, parameter_modes, *parameters)
             # print(memory)
             if ip is not None:
@@ -171,13 +172,23 @@ class Opcode:
         return instruction_pointer, output
 
 
-if __name__ == '__main__':
+def main(sys_argv=sys.argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('program', type=lambda x: list(map(int, Path(x).read_text().split(','))))
+    parser.add_argument('outfile', nargs='?', type=argparse.FileType('w'), default=sys.stdout)
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
 
-    print(f'Program: {args.program}')
+    if args.verbose:
+        print(f'Program: {args.program}')
     computer = IntComputer(args.program)
-    output = computer()
-    print(f'Output: {output}')
-    print(f'Memory: {computer.memory}')
+    output = computer(verbose=args.verbose)
+    if args.verbose:
+        print(f'Output: {output}')
+        print(f'Memory: {computer.memory}')
+    print(output, end='', file=args.outfile)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
