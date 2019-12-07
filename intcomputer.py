@@ -1,8 +1,12 @@
 import sys
 import argparse
 import itertools
-import functools
 from pathlib import Path
+
+
+PROMPT = ''
+LOGFILE = None
+MEMFILE = None
 
 
 class IntComputer:
@@ -23,10 +27,9 @@ class IntComputer:
 
     def __call__(self, verbose=False):
         max_steps = 10000
-        output_buffer = []
         for step in itertools.count():
             if step == max_steps:
-                print(f'Max steps {max_steps} reached', file=sys.stderr)
+                print(f'Max steps {max_steps} reached', file=LOGFILE)
                 break
             instruction = self.memory[self.instruction_pointer]
             instruction, opcode = divmod(instruction, 100)
@@ -37,13 +40,11 @@ class IntComputer:
                 parameter_modes.append(mode)
             op = self.opcodes[opcode]
             try:
-                self.instruction_pointer, output = op(self.memory, self.instruction_pointer, parameter_modes, verbose)
-                if output is not None:
-                    output_buffer.append(output)
+                self.instruction_pointer = op(self.memory, self.instruction_pointer, parameter_modes, verbose)
             except StopIteration:
+                if PROMPT:
+                    print('\n', end=PROMPT, file=sys.stdout)
                 break
-        if output_buffer:
-            return int(''.join(map(str, output_buffer)))
         return 0
 
     def __getitem__(self, key):
@@ -61,55 +62,31 @@ def handle_mode(memory, mode, value):
     raise ValueError(f'Unknown mode {mode}')
 
 
-def _instruction(return_type=None):
-    def funcwrapper(fun):
-        @functools.wraps(fun)
-        def wrapper(memory, modes, *parameters):
-            ret_value = fun(memory, modes, *parameters)
-            if return_type is 'ip':
-                return ret_value, None
-            return None, ret_value
-        return wrapper
-    return funcwrapper
-
-
-def instruction(fun):
-    return _instruction()(fun)
-
-
-def ip_instruction(fun):
-    return _instruction('ip')(fun)
-
-
-def out_instruction(fun):
-    return _instruction('out')(fun)
-
-
-@instruction
 def add(memory, modes, summand0, summand1, result_addr):
     summand0 = handle_mode(memory, modes[0], summand0)
     summand1 = handle_mode(memory, modes[1], summand1)
     memory[result_addr] = summand0 + summand1
 
 
-@instruction
 def multiply(memory, modes, factor0, factor1, result_addr):
     factor0 = handle_mode(memory, modes[0], factor0)
     factor1 = handle_mode(memory, modes[1], factor1)
     memory[result_addr] = factor0 * factor1
 
 
-@instruction
 def read_input(memory, modes, addr):
-    memory[addr] = int(sys.stdin.readline().strip())
+    memory[addr] = int(input(PROMPT))
+    if LOGFILE:
+        print('INPUT:', memory[addr], file=LOGFILE)
 
 
-@out_instruction
 def write_output(memory, modes, value):
-    return handle_mode(memory, modes[0], value)
+    value = handle_mode(memory, modes[0], value)
+    print(value, file=sys.stdout, end='')
+    if LOGFILE:
+        print('OUTPUT:', value, file=LOGFILE)
 
 
-@ip_instruction
 def jump_if_true(memory, modes, comp, jump_addr):
     comp = handle_mode(memory, modes[0], comp)
     jump_addr = handle_mode(memory, modes[1], jump_addr)
@@ -117,7 +94,6 @@ def jump_if_true(memory, modes, comp, jump_addr):
         return jump_addr
 
 
-@ip_instruction
 def jump_if_false(memory, modes, comp, jump_addr):
     comp = handle_mode(memory, modes[0], comp)
     jump_addr = handle_mode(memory, modes[1], jump_addr)
@@ -125,21 +101,18 @@ def jump_if_false(memory, modes, comp, jump_addr):
         return jump_addr
 
 
-@instruction
 def less_than(memory, modes, comp0, comp1, result_addr):
     comp0 = handle_mode(memory, modes[0], comp0)
     comp1 = handle_mode(memory, modes[1], comp1)
     memory[result_addr] = int(comp0 < comp1)
 
 
-@instruction
 def equals(memory, modes, comp0, comp1, result_addr):
     comp0 = handle_mode(memory, modes[0], comp0)
     comp1 = handle_mode(memory, modes[1], comp1)
     memory[result_addr] = int(comp0 == comp1)
 
 
-@instruction
 def halt(memory, modes):
     raise StopIteration()
 
@@ -160,33 +133,38 @@ class Opcode:
         instruction_pointer += self.stride
         try:
             if verbose:
-                print(f'{self.code} [{self.callfun.__name__}]{parameters}{parameter_modes}')
-            ip, output = self.callfun(memory, parameter_modes, *parameters)
-            # print(memory)
+                print(f'{self.code} [{self.callfun.__name__}]{parameters}{parameter_modes}', file=LOGFILE)
+            ip = self.callfun(memory, parameter_modes, *parameters)
+            if MEMFILE:
+                print(memory, file=MEMFILE)
             if ip is not None:
                 instruction_pointer = ip
         except IndexError as e:
-            print(f'Error in {self.callfun.__name__}: {parameters}', file=sys.stderr)
-            print(memory, instruction_pointer, file=sys.stderr)
+            print(f'Error in {self.callfun.__name__}: {parameters}', file=LOGFILE)
+            print(memory, instruction_pointer, file=LOGFILE)
             raise e
-        return instruction_pointer, output
+        return instruction_pointer
 
 
 def main(sys_argv=sys.argv):
+    global PROMPT, LOGFILE, MEMFILE
     parser = argparse.ArgumentParser()
     parser.add_argument('program', type=lambda x: list(map(int, Path(x).read_text().split(','))))
-    parser.add_argument('outfile', nargs='?', type=argparse.FileType('w'), default=sys.stdout)
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-p', '--prompt', nargs='?', default=PROMPT)
+    parser.add_argument('-l', '--logfile', nargs='?', type=argparse.FileType('w'))
+    parser.add_argument('-m', '--memfile', nargs='?', type=argparse.FileType('w'))
     args = parser.parse_args()
+    PROMPT = args.prompt
+    LOGFILE = args.logfile
+    MEMFILE = args.memfile
 
     if args.verbose:
-        print(f'Program: {args.program}')
+        print(f'Program: {args.program}', file=LOGFILE)
     computer = IntComputer(args.program)
-    output = computer(verbose=args.verbose)
+    computer(verbose=args.verbose)
     if args.verbose:
-        print(f'Output: {output}')
-        print(f'Memory: {computer.memory}')
-    print(output, end='', file=args.outfile)
+        print(f'Memory: {computer.memory}', file=LOGFILE)
     return 0
 
 
