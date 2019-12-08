@@ -26,6 +26,6 @@ for x in range(w):
             if decoded[y * w + x] == '2':
                 decoded[y * w + x] = image[z * w * h + y * w + x]
 
-decoded = ''.join(decoded)
+decoded = ''.join(decoded).replace('0', '░').replace('1', '█')
 for row in range(h):
     print(decoded[row * w:(row + 1) * w])
