@@ -1,13 +1,17 @@
 import pexpect
 from pexpect.replwrap import REPLWrapper
 import numpy as np
+import matplotlib.pyplot as plt
 
-panel = np.zeros((1001, 1001), dtype=np.uint8)
-painted = np.zeros((1001, 1001), dtype=np.bool)
+panel = np.zeros((201, 201), dtype=np.uint8)
+painted = np.zeros(panel.shape, dtype=np.bool)
 # 0: up, 1: right, 2: down, 3: left, ... use mod 4
-robotrow, robotcol, robotdir = 500, 500, 0
+robotrow, robotcol, robotdir = panel.shape[0] // 2, panel.shape[1] // 2, 0
 
-computer = REPLWrapper(f'python3 ../intcomputer.py -v -l log.log -p "> " program', '> ', None)
+# Pt. 2: Start on white pixel
+panel[robotrow, robotcol] = 1
+
+computer = REPLWrapper(f'python3 ../intcomputer.py -p "> " program', '> ', None)
 
 max_steps = 10000
 for i in range(max_steps):
@@ -35,6 +39,7 @@ for i in range(max_steps):
         robotcol -= 1
 else:
     print('max steps reached')
-import matplotlib.pyplot as plt
-plt.imshow(panel)
-print(painted.sum())
+print(painted.sum(), i)
+plt.gray()
+plt.imshow(panel, vmin=0, vmax=1)
+plt.savefig('identifier.png')
