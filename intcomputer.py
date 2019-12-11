@@ -65,7 +65,7 @@ class IntComputer:
                 self.instruction_pointer, self.relative_base = op(self.memory, self.instruction_pointer, self.relative_base, parameter_modes, verbose)
             except StopIteration:
                 if PROMPT:
-                    print('\n', end=PROMPT, file=sys.stdout)
+                    print('\n', file=sys.stdout)
                 break
         return 0
 
