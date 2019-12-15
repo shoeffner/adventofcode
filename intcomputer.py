@@ -57,10 +57,11 @@ class Memory(list):
 
 
 class IntComputer(threading.Thread):
-    def __init__(self, memory=None):
+    def __init__(self, memory=None, timeout=.3):
         self.instruction_pointer = 0
         self.relative_base = 0
         self.memory = Memory(memory if memory is not None else [99])
+        self.timeout = timeout
         self._terminated = False
         self.stdin = queue.Queue(1)
         self.stdout = queue.Queue(1)
@@ -135,7 +136,8 @@ class IntComputer(threading.Thread):
         return self
 
     def __exit__(self, error, value, traceback):
-        self._thread.join()
+        # self._thread.join()
+        pass
 
     def _op_add(self, a, b, c):
         self.memory[c] = a + b
@@ -144,10 +146,16 @@ class IntComputer(threading.Thread):
         self.memory[c] = a * b
 
     def _op_input(self, a):
-        self.memory[a] = self.stdin.get()
+        try:
+            self.memory[a] = self.stdin.get(timeout=self.timeout)
+        except queue.Empty:
+            self.terminated = True
 
     def _op_output(self, a):
-        self.stdout.put(a)
+        try:
+            self.stdout.put(a, timeout=self.timeout)
+        except queue.Full:
+            self.terminated = True
 
     def _op_jump_if_true(self, a, b):
         if a != 0:
