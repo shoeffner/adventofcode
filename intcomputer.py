@@ -57,14 +57,14 @@ class Memory(list):
 
 
 class IntComputer(threading.Thread):
-    def __init__(self, memory=None, timeout=.3):
+    def __init__(self, memory=None, timeout=.5):
         self.instruction_pointer = 0
         self.relative_base = 0
         self.memory = Memory(memory if memory is not None else [99])
         self.timeout = timeout
         self._terminated = False
-        self.stdin = queue.Queue(1)
-        self.stdout = queue.Queue(1)
+        self.stdin = queue.Queue()
+        self.stdout = queue.Queue()
         self.lock = threading.Semaphore()
         R = ParameterTypes.READ
         W = ParameterTypes.WRITE
@@ -147,13 +147,13 @@ class IntComputer(threading.Thread):
 
     def _op_input(self, a):
         try:
-            self.memory[a] = self.stdin.get(timeout=self.timeout)
+            self.memory[a] = self.stdin.get(block=True, timeout=self.timeout)
         except queue.Empty:
             self.terminated = True
 
     def _op_output(self, a):
         try:
-            self.stdout.put(a, timeout=self.timeout)
+            self.stdout.put(a, block=True, timeout=self.timeout)
         except queue.Full:
             self.terminated = True
 
