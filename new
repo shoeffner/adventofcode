@@ -1,0 +1,53 @@
+#!/usr/bin/env python3.11
+import pathlib
+import sys
+import urllib.request
+import urllib.error
+from datetime import date
+
+
+def determine_date():
+    today = date.today()
+    if len(sys.argv) > 1:
+        day = sys.argv[1]
+    else:
+        day = str(today.day)
+    
+    if len(sys.argv) > 2:
+        year = sys.argv[2]
+    else:
+        year = str(today.year)
+    return year, day
+
+
+def input_url(year, day):
+    return f'https://adventofcode.com/{year}/day/{day}/input'
+
+
+def ensure_directory(year, day):
+    day_dir = pathlib.Path(__file__).parent / year / f'{day:0>2}'
+    day_dir.mkdir(parents=True, exist_ok=True)
+    return day_dir
+
+
+def download_input(to_path, url, cookie):
+    request = urllib.request.Request(url=url, headers={'Cookie': cookie})
+    with urllib.request.urlopen(request) as response:
+        to_path.write_bytes(response.read())
+
+
+def main():
+    year, day = determine_date()
+    day_dir = ensure_directory(year, day)
+
+    url = input_url(year, day)
+    cookie = (pathlib.Path(__file__).parent / 'cookie').read_text().strip()
+    try:
+        download_input(day_dir / 'input', url, cookie)
+    except urllib.error.HTTPError as e:
+        print(f'Could not download input from {url}: {e}', file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()
+
